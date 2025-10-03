@@ -1,0 +1,203 @@
+#include <Wire.h>
+#include <QMC5883LCompass.h>
+
+// =======================
+// PIN DEFINITIONS
+// =======================
+#define MOTORLATCH 12
+#define MOTORCLK 4
+#define MOTORENABLE 7
+#define MOTORDATA 8
+
+#define MOTOR12_PWM 11
+#define MOTOR34_PWM 3
+
+#define TRIG_LEFT 22
+#define ECHO_LEFT 23
+#define TRIG_RIGHT 24
+#define ECHO_RIGHT 25
+#define SOIL_SENSOR A8
+
+#define BUZZER 9
+#define LED_RED 10
+#define LED_GREEN 8
+
+// Motor bits
+#define MOTOR1_A 2
+#define MOTOR1_B 3
+#define MOTOR2_A 1
+#define MOTOR2_B 4
+#define MOTOR3_A 5
+#define MOTOR3_B 7
+#define MOTOR4_A 0
+#define MOTOR4_B 6
+
+static uint8_t latch_state;
+
+// =======================
+// PARAMETERS
+// =======================
+int WATER_THRESHOLD = 400;
+int SAFE_DISTANCE = 25;
+
+// =======================
+// SETUP
+// =======================
+void setup() {
+  Serial.begin(9600);
+  pinMode(MOTORLATCH, OUTPUT);
+  pinMode(MOTORENABLE, OUTPUT);
+  pinMode(MOTORDATA, OUTPUT);
+  pinMode(MOTORCLK, OUTPUT);
+  pinMode(MOTOR12_PWM, OUTPUT);
+  pinMode(MOTOR34_PWM, OUTPUT);
+  digitalWrite(MOTORENABLE, LOW);
+  latch_state = 0;
+  latch_tx();
+
+  pinMode(TRIG_LEFT, OUTPUT);
+  pinMode(ECHO_LEFT, INPUT);
+  pinMode(TRIG_RIGHT, OUTPUT);
+  pinMode(ECHO_RIGHT, INPUT);
+
+  pinMode(BUZZER, OUTPUT);
+  pinMode(LED_RED, OUTPUT);
+  pinMode(LED_GREEN, OUTPUT);
+
+  digitalWrite(LED_RED, LOW);
+  digitalWrite(LED_GREEN, LOW);
+
+  Serial.println("Simple Rover Ready!");
+}
+
+// =======================
+// LOOP
+// =======================
+void loop() {
+  // Check for water
+  int soil = analogRead(SOIL_SENSOR);
+  Serial.print("Soil: "); Serial.println(soil);
+
+  if (soil < WATER_THRESHOLD) {
+    stopRover();
+    signalWater();
+    while (1); // stop forever
+  }
+
+  // Check for obstacles
+  int leftDist = getDistance(TRIG_LEFT, ECHO_LEFT);
+  int rightDist = getDistance(TRIG_RIGHT, ECHO_RIGHT);
+
+  if (leftDist < SAFE_DISTANCE && rightDist < SAFE_DISTANCE) {
+    // Both blocked -> back up
+    moveBackward(150);
+    delay(500);
+    turnRight(150, 400);
+  } else if (leftDist < SAFE_DISTANCE) {
+    turnRight(150, 300);
+  } else if (rightDist < SAFE_DISTANCE) {
+    turnLeft(150, 300);
+  } else {
+    moveForward(200); // Default: straight
+  }
+
+  delay(50);
+}
+
+// =======================
+// WATER SIGNAL
+// =======================
+void signalWater() {
+  for (int i = 0; i < 3; i++) {
+    digitalWrite(LED_GREEN, HIGH);
+    digitalWrite(BUZZER, HIGH);
+    delay(300);
+    digitalWrite(LED_GREEN, LOW);
+    digitalWrite(BUZZER, LOW);
+    delay(300);
+  }
+}
+
+// =======================
+// ULTRASONIC
+// =======================
+int getDistance(int trigPin, int echoPin) {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  long duration = pulseIn(echoPin, HIGH, 30000);
+  if (duration == 0) return 200;
+  return duration * 0.034 / 2;
+}
+
+// =======================
+// MOTOR CONTROL
+// =======================
+void latch_tx() {
+  digitalWrite(MOTORLATCH, LOW);
+  shiftOut(MOTORDATA, MOTORCLK, MSBFIRST, latch_state);
+  digitalWrite(MOTORLATCH, HIGH);
+}
+
+void motor_output(uint8_t output, uint8_t value) {
+  if (value == 0) latch_state &= ~_BV(output);
+  else latch_state |= _BV(output);
+  latch_tx();
+}
+
+void motorForward(uint8_t m) { 
+  if (m == 1) { motor_output(MOTOR1_A, 0); motor_output(MOTOR1_B, 1); }
+  if (m == 2) { motor_output(MOTOR2_A, 0); motor_output(MOTOR2_B, 1); }
+  if (m == 3) { motor_output(MOTOR3_A, 0); motor_output(MOTOR3_B, 1); }
+  if (m == 4) { motor_output(MOTOR4_A, 0); motor_output(MOTOR4_B, 1); }
+}
+void motorBackward(uint8_t m) { 
+  if (m == 1) { motor_output(MOTOR1_A, 1); motor_output(MOTOR1_B, 0); }
+  if (m == 2) { motor_output(MOTOR2_A, 1); motor_output(MOTOR2_B, 0); }
+  if (m == 3) { motor_output(MOTOR3_A, 1); motor_output(MOTOR3_B, 0); }
+  if (m == 4) { motor_output(MOTOR4_A, 1); motor_output(MOTOR4_B, 0); }
+}
+
+void motorStop(uint8_t m) { 
+  motor_output(MOTOR1_A, 0); motor_output(MOTOR1_B, 0);
+  motor_output(MOTOR2_A, 0); motor_output(MOTOR2_B, 0);
+  motor_output(MOTOR3_A, 0); motor_output(MOTOR3_B, 0);
+  motor_output(MOTOR4_A, 0); motor_output(MOTOR4_B, 0);
+}
+
+void moveForward(int speed) {
+  motorForward(1); motorForward(2);
+  motorForward(3); motorForward(4);
+  analogWrite(MOTOR12_PWM, speed);
+  analogWrite(MOTOR34_PWM, speed);
+}
+void moveBackward(int speed) {
+  motorBackward(1); motorBackward(2);
+  motorBackward(3); motorBackward(4);
+  analogWrite(MOTOR12_PWM, speed);
+  analogWrite(MOTOR34_PWM, speed);
+}
+void stopRover() {
+  motorStop(1); motorStop(2); motorStop(3); motorStop(4);
+  analogWrite(MOTOR12_PWM, 0);
+  analogWrite(MOTOR34_PWM, 0);
+}
+void turnLeft(int speed, int duration) {
+  motorBackward(1); motorBackward(2);
+  motorForward(3); motorForward(4);
+  analogWrite(MOTOR12_PWM, speed);
+  analogWrite(MOTOR34_PWM, speed);
+  delay(duration);
+  stopRover();
+}
+void turnRight(int speed, int duration) {
+  motorForward(1); motorForward(2);
+  motorBackward(3); motorBackward(4);
+  analogWrite(MOTOR12_PWM, speed);
+  analogWrite(MOTOR34_PWM, speed);
+  delay(duration);
+  stopRover();
+}
