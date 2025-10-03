@@ -148,19 +148,18 @@ void motor_output(uint8_t output, uint8_t value) {
   latch_tx();
 }
 
-void motorForward(uint8_t m) { 
-  if (m == 1) { motor_output(MOTOR1_A, 0); motor_output(MOTOR1_B, 1); }
-  if (m == 2) { motor_output(MOTOR2_A, 0); motor_output(MOTOR2_B, 1); }
-  if (m == 3) { motor_output(MOTOR3_A, 0); motor_output(MOTOR3_B, 1); }
-  if (m == 4) { motor_output(MOTOR4_A, 0); motor_output(MOTOR4_B, 1); }
-}
 void motorBackward(uint8_t m) { 
   if (m == 1) { motor_output(MOTOR1_A, 1); motor_output(MOTOR1_B, 0); }
   if (m == 2) { motor_output(MOTOR2_A, 1); motor_output(MOTOR2_B, 0); }
   if (m == 3) { motor_output(MOTOR3_A, 1); motor_output(MOTOR3_B, 0); }
   if (m == 4) { motor_output(MOTOR4_A, 1); motor_output(MOTOR4_B, 0); }
 }
-
+void motorForward(uint8_t m) { 
+  if (m == 1) { motor_output(MOTOR1_A, 0); motor_output(MOTOR1_B, 1); }
+  if (m == 2) { motor_output(MOTOR2_A, 0); motor_output(MOTOR2_B, 1); }
+  if (m == 3) { motor_output(MOTOR3_A, 0); motor_output(MOTOR3_B, 1); }
+  if (m == 4) { motor_output(MOTOR4_A, 0); motor_output(MOTOR4_B, 1); }
+}
 void motorStop(uint8_t m) { 
   motor_output(MOTOR1_A, 0); motor_output(MOTOR1_B, 0);
   motor_output(MOTOR2_A, 0); motor_output(MOTOR2_B, 0);
