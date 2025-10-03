@@ -38,7 +38,7 @@ static uint8_t latch_state;
 // PARAMETERS
 // =======================
 int WATER_THRESHOLD = 400;
-int SAFE_DISTANCE = 25;
+int SAFE_DISTANCE = 50;
 
 // =======================
 // SETUP
@@ -78,9 +78,10 @@ void loop() {
   int soil = analogRead(SOIL_SENSOR);
   Serial.print("Soil: "); Serial.println(soil);
 
-  if (soil < WATER_THRESHOLD) {
+  if (soil > WATER_THRESHOLD) {
     stopRover();
     signalWater();
+    Serial.print("Stop");
     while (1); // stop forever
   }
 
@@ -90,15 +91,15 @@ void loop() {
 
   if (leftDist < SAFE_DISTANCE && rightDist < SAFE_DISTANCE) {
     // Both blocked -> back up
-    moveBackward(150);
+    moveBackward(255);
     delay(500);
-    turnRight(150, 400);
+    turnRight(250, 400);
   } else if (leftDist < SAFE_DISTANCE) {
-    turnRight(150, 300);
+    turnRight(250, 300);
   } else if (rightDist < SAFE_DISTANCE) {
-    turnLeft(150, 300);
+    turnLeft(250, 300);
   } else {
-    moveForward(200); // Default: straight
+    moveForward(255); // Default: straight
   }
 
   delay(50);
